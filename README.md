@@ -8,27 +8,33 @@ A task tracker CLI tool written in Go. This is my first deepdive into the Go pro
 
 ## Getting Started
 
-1. Download the binary on the [release page](https://github.com/Bibbeep/task-cli-go/releases) or you can move to the next step and build the binary yourself
+1. Download the binary on the [release page](https://github.com/Bibbeep/task-cli-go/releases) or you can skip to step 3 and build the binary yourself
 
-2. Clone the repository
+2. Add execute permission to the file
+
+   ```sh
+   chmod +x task-cli
+   ```
+
+3. Clone the repository
 
    ```sh
    git clone https://github.com/Bibbeep/task-cli-go.git
    ```
 
-3. Change directory to the project folder
+4. Change directory to the project folder
 
    ```sh
    cd task-cli-go
    ```
 
-4. Compile the project
+5. Compile the project
 
    ```sh
    go build
    ```
 
-5. Run the program
+6. Run the program
 
    ```sh
    ./task-cli
