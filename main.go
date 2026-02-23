@@ -78,7 +78,7 @@ func printList(t *[]task, s string) error {
 			}
 		}
 	} else {
-		return (fmt.Errorf("invalid argument '%s'\nUsage: %s %s <status>\nStatus:\n\ttodo\n\tin-progress\n\tdone\n", args[2], args[0], args[1]))
+		return fmt.Errorf("invalid argument '%s'\nUsage: %s %s <status>\nStatus:\n\ttodo\n\tin-progress\n\tdone\n", args[2], args[0], args[1])
 	}
 
 	w.Flush()
@@ -91,7 +91,7 @@ func main() {
 	defer handlePanic()
 
 	if len(args) < 2 {
-		panic(fmt.Errorf("invalid usage\nUsage: %s <command> [<value>...]\nCommands:\n\tadd\tAdd a new task\n\tlist\tList all tasks\n\tdelete\tDelete a task\n", args[0]))
+		panic(fmt.Errorf("invalid usage\nUsage: %s <command> [<value>...]\nCommands:\n\tadd\t\t\tAdd a new task\n\tlist\t\t\tList all tasks\n\tdelete\t\t\tDelete a task\n\tupdate\t\t\tUpdate a task description\n\tmark-in-progress\tMark a task as in-progress\n\tmark-done\t\tMark a task as done\n", args[0]))
 	}
 
 	ex, err := os.Executable()
@@ -216,8 +216,119 @@ func main() {
 		}
 
 		fmt.Printf("Task deleted successfully (ID: %d)\n", id)
+	case "update":
+		if len(args) < 4 {
+			panic(fmt.Errorf("invalid usage\nUsage: %s %s <ID> \"<description>\"\n", args[0], args[1]))
+		} else if match, _ := regexp.MatchString("^[^0][0-9]*$", args[2]); !match {
+			panic(fmt.Errorf("invalid argument '%s'\nUsage: %s %s <ID>\n\n\tID must be non-zero integer\n", args[2], args[0], args[1]))
+		}
+
+		id, err := strconv.Atoi(args[2])
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when converting arguments to integer\n%v\n", err))
+		}
+
+		taskIdx := slices.IndexFunc(tasks, func(t task) bool {
+			return t.Id == uint8(id)
+		})
+
+		if taskIdx == -1 {
+			panic(fmt.Errorf("There is no existing task with ID=%d\n", id))
+		}
+
+		tasks[taskIdx].Description = args[3]
+		tasks[taskIdx].UpdatedAt = time.Now()
+
+		b, err := json.Marshal(tasks)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when encoding data\n%v\n", err))
+		}
+
+		err = os.WriteFile(dataDir, b, 0644)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when writing data.json\n%v\n", err))
+		}
+
+		fmt.Printf("Task updated successfully (ID: %d)\n", id)
+	case "mark-in-progress":
+		if len(args) < 3 {
+			panic(fmt.Errorf("invalid usage\nUsage: %s %s <ID>\n", args[0], args[1]))
+		} else if match, _ := regexp.MatchString("^[^0][0-9]*$", args[2]); !match {
+			panic(fmt.Errorf("invalid argument '%s'\nUsage: %s %s <ID>\n\n\tID must be non-zero integer\n", args[2], args[0], args[1]))
+		}
+
+		id, err := strconv.Atoi(args[2])
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when converting arguments to integer\n%v\n", err))
+		}
+
+		taskIdx := slices.IndexFunc(tasks, func(t task) bool {
+			return t.Id == uint8(id)
+		})
+
+		if taskIdx == -1 {
+			panic(fmt.Errorf("There is no existing task with ID=%d\n", id))
+		}
+
+		tasks[taskIdx].Status = InProgress
+		tasks[taskIdx].UpdatedAt = time.Now()
+
+		b, err := json.Marshal(tasks)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when encoding data\n%v\n", err))
+		}
+
+		err = os.WriteFile(dataDir, b, 0644)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when writing data.json\n%v\n", err))
+		}
+
+		fmt.Printf("Task marked as in-progress successfully (ID: %d)\n", id)
+	case "mark-done":
+		if len(args) < 3 {
+			panic(fmt.Errorf("invalid usage\nUsage: %s %s <ID>\n", args[0], args[1]))
+		} else if match, _ := regexp.MatchString("^[^0][0-9]*$", args[2]); !match {
+			panic(fmt.Errorf("invalid argument '%s'\nUsage: %s %s <ID>\n\n\tID must be non-zero integer\n", args[2], args[0], args[1]))
+		}
+
+		id, err := strconv.Atoi(args[2])
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when converting arguments to integer\n%v\n", err))
+		}
+
+		taskIdx := slices.IndexFunc(tasks, func(t task) bool {
+			return t.Id == uint8(id)
+		})
+
+		if taskIdx == -1 {
+			panic(fmt.Errorf("There is no existing task with ID=%d\n", id))
+		}
+
+		tasks[taskIdx].Status = Done
+		tasks[taskIdx].UpdatedAt = time.Now()
+
+		b, err := json.Marshal(tasks)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when encoding data\n%v\n", err))
+		}
+
+		err = os.WriteFile(dataDir, b, 0644)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when writing data.json\n%v\n", err))
+		}
+
+		fmt.Printf("Task marked as done successfully (ID: %d)\n", id)
 	default:
-		panic(fmt.Errorf("invalid command '%s'\nUsage: %s <command> [value...]\nCommands:\n\tadd\tAdd a new task\n\tlist\tList all tasks\n\tdelete\tDelete a task\n", args[1], args[0]))
+		panic(fmt.Errorf("invalid command '%s'\nUsage: %s <command> [value...]\nCommands:\n\tadd\t\t\tAdd a new task\n\tlist\t\t\tList all tasks\n\tdelete\t\t\tDelete a task\n\tupdate\t\t\tUpdate a task description\n\tmark-in-progress\tMark a task as in-progress\n\tmark-done\t\tMark a task as done\n", args[1], args[0]))
 	}
 
 	os.Exit(0)
