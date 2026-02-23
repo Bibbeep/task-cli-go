@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
 	"text/tabwriter"
 	"time"
 )
@@ -61,7 +63,7 @@ func handlePanic() {
 	}
 }
 
-func printList(t *[]task, s string) {
+func printList(t *[]task, s string) error {
 	w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tDescription\tStatus\tDate Created\tDate Updated")
 
@@ -76,10 +78,11 @@ func printList(t *[]task, s string) {
 			}
 		}
 	} else {
-		panic(fmt.Errorf("invalid argument '%s'\nUsage: %s %s <status>\nStatus:\n\ttodo\n\tin-progress\n\tdone\n", args[2], args[0], args[1]))
+		return (fmt.Errorf("invalid argument '%s'\nUsage: %s %s <status>\nStatus:\n\ttodo\n\tin-progress\n\tdone\n", args[2], args[0], args[1]))
 	}
 
 	w.Flush()
+	return nil
 }
 
 func main() {
@@ -88,7 +91,7 @@ func main() {
 	defer handlePanic()
 
 	if len(args) < 2 {
-		panic(fmt.Errorf("invalid usage\nUsage: %s <command> [<value>...]\nCommands:\n\tadd\tAdd a new task\n\tlist\tList all tasks\n", args[0]))
+		panic(fmt.Errorf("invalid usage\nUsage: %s <command> [<value>...]\nCommands:\n\tadd\tAdd a new task\n\tlist\tList all tasks\n\tdelete\tDelete a task\n", args[0]))
 	}
 
 	ex, err := os.Executable()
@@ -167,12 +170,54 @@ func main() {
 		}
 
 		if len(tasks) != 0 {
-			printList(&tasks, statusFilter)
+			err := printList(&tasks, statusFilter)
+
+			if err != nil {
+				panic(err)
+			}
 		} else {
 			fmt.Printf("There is no existing tasks\n")
 		}
+	case "delete":
+		if len(args) < 3 {
+			panic(fmt.Errorf("invalid usage\nUsage: %s %s <ID>\n", args[0], args[1]))
+		} else if match, _ := regexp.MatchString("^[^0][0-9]*$", args[2]); !match {
+			panic(fmt.Errorf("invalid argument '%s'\nUsage: %s %s <ID>\n\n\tID must be non-zero integer\n", args[2], args[0], args[1]))
+		}
+
+		id, err := strconv.Atoi(args[2])
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when converting arguments to integer\n%v\n", err))
+		}
+
+		isTaskExist := slices.ContainsFunc(tasks, func(t task) bool {
+			return t.Id == uint8(id)
+		})
+
+		if !isTaskExist {
+			panic(fmt.Errorf("There is no existing task with ID=%d\n", id))
+		}
+
+		tasks = slices.DeleteFunc(tasks, func(t task) bool {
+			return t.Id == uint8(id)
+		})
+
+		b, err := json.Marshal(tasks)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when encoding data\n%v\n", err))
+		}
+
+		err = os.WriteFile(dataDir, b, 0644)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when writing data.json\n%v\n", err))
+		}
+
+		fmt.Printf("Task deleted successfully (ID: %d)\n", id)
 	default:
-		panic(fmt.Errorf("invalid command '%s'\nUsage: %s <command> [value...]\nCommands:\n\tadd\tAdd a new task\n\tlist\tList all tasks\n", args[1], args[0]))
+		panic(fmt.Errorf("invalid command '%s'\nUsage: %s <command> [value...]\nCommands:\n\tadd\tAdd a new task\n\tlist\tList all tasks\n\tdelete\tDelete a task\n", args[1], args[0]))
 	}
 
 	os.Exit(0)
