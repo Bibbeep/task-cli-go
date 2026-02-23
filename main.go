@@ -87,9 +87,9 @@ func main() {
 			panic(fmt.Errorf("an error occured when reading data.json: %v\n", err))
 		}
 
-		unmarshalErr := json.Unmarshal(b, &tasks)
-		if unmarshalErr != nil {
-			panic(fmt.Errorf("data.json has invalid format\n%v\n", unmarshalErr))
+		err = json.Unmarshal(b, &tasks)
+		if err != nil {
+			panic(fmt.Errorf("data.json has invalid format\n%v\n", err))
 		}
 	}
 
@@ -116,8 +116,19 @@ func main() {
 		}
 
 		tasks = append(tasks, newTask)
+		b, err := json.Marshal(tasks)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when encoding data\n%v\n", err))
+		}
+
+		err = os.WriteFile(dataDir, b, 0644)
+
+		if err != nil {
+			panic(fmt.Errorf("an error occured when writing data.json\n%v\n", err))
+		}
+
 		fmt.Printf("Task added successfully (ID: %d)\n", newTask.Id)
-		// TODO implement writing to file instead to slice
 	}
 
 	os.Exit(0)
