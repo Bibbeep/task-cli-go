@@ -6,8 +6,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"text/tabwriter"
 	"time"
 )
+
+var args []string
 
 type TaskStatus string
 
@@ -16,6 +20,10 @@ const (
 	InProgress TaskStatus = "in-progress"
 	Done       TaskStatus = "done"
 )
+
+func (t TaskStatus) String() string {
+	return string(t)
+}
 
 type task struct {
 	Id          uint8      `json:"id"`
@@ -53,13 +61,34 @@ func handlePanic() {
 	}
 }
 
+func printList(t *[]task, s string) {
+	w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
+	fmt.Fprintln(w, "ID\tDescription\tStatus\tDate Created\tDate Updated")
+
+	if s == "" {
+		for _, v := range *t {
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", v.Id, v.Description, v.Status, v.CreatedAt.Format(time.RFC1123), v.UpdatedAt.Format(time.RFC1123))
+		}
+	} else if status := []string{Todo.String(), InProgress.String(), Done.String()}; slices.Contains(status, s) {
+		for _, v := range *t {
+			if v.Status.String() == s {
+				fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", v.Id, v.Description, v.Status, v.CreatedAt.Format(time.RFC1123), v.UpdatedAt.Format(time.RFC1123))
+			}
+		}
+	} else {
+		panic(fmt.Errorf("invalid argument '%s'\nUsage: %s %s <status>\nStatus:\n\ttodo\n\tin-progress\n\tdone\n", args[2], args[0], args[1]))
+	}
+
+	w.Flush()
+}
+
 func main() {
-	args := os.Args
+	args = os.Args
 
 	defer handlePanic()
 
 	if len(args) < 2 {
-		panic(fmt.Errorf("invalid usage\nUsage: %s <command> [<value>...]\n", args[0]))
+		panic(fmt.Errorf("invalid usage\nUsage: %s <command> [<value>...]\nCommands:\n\tadd\tAdd a new task\n\tlist\tList all tasks\n", args[0]))
 	}
 
 	ex, err := os.Executable()
@@ -72,7 +101,7 @@ func main() {
 	moduleDir := filepath.Dir(ex)
 	dataDir := filepath.Join(moduleDir, "data.json")
 
-	if _, err := os.Stat(dataDir); errors.Is(err, os.ErrNotExist) {
+	if fileInfo, err := os.Stat(dataDir); errors.Is(err, os.ErrNotExist) {
 		file, err := os.Create("data.json")
 
 		if err != nil {
@@ -80,6 +109,8 @@ func main() {
 		}
 
 		defer file.Close()
+	} else if fileInfo.Size() == 0 {
+		// Do nothing when file is empty
 	} else if err == nil {
 		b, err := os.ReadFile(dataDir)
 
@@ -105,7 +136,7 @@ func main() {
 			lastTaskId = tasks[len(tasks)-1].Id
 		}
 
-		now := time.Now().UTC()
+		now := time.Now()
 
 		newTask := task{
 			Id:          lastTaskId + 1,
@@ -129,6 +160,19 @@ func main() {
 		}
 
 		fmt.Printf("Task added successfully (ID: %d)\n", newTask.Id)
+	case "list":
+		var statusFilter string
+		if len(args) > 2 {
+			statusFilter = args[2]
+		}
+
+		if len(tasks) != 0 {
+			printList(&tasks, statusFilter)
+		} else {
+			fmt.Printf("There is no existing tasks\n")
+		}
+	default:
+		panic(fmt.Errorf("invalid command '%s'\nUsage: %s <command> [value...]\nCommands:\n\tadd\tAdd a new task\n\tlist\tList all tasks\n", args[1], args[0]))
 	}
 
 	os.Exit(0)
